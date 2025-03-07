@@ -93,9 +93,16 @@ export const joinQueue = (userId, onPaired) => {
               }
             }
           }
-        }, {
-          onlyOnce: true // Run once to avoid repeated checks
         });
+
+        // Fallback timeout if chat isn’t detected within 10 seconds
+        setTimeout(() => {
+          if (!off(chatCheckRef, "value", checkChat)) {
+            console.log(`Timeout: No chat found for ${userId}`);
+            off(chatCheckRef, "value", checkChat);
+            off(queueRef, "value", handleQueueChange);
+          }
+        }, 10000);
       }
     }
   };
