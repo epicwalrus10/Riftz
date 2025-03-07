@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { auth } from './firebase/firebase';
+import { auth } from '../firebase/firebase';
 import { loginAnonymously, joinQueue } from '../auth';
 import Chat from './Chat';
 
