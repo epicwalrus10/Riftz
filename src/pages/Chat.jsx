@@ -6,16 +6,24 @@ function Chat({ chatId, userId, onEndChat }) {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
 
+  // Fetch and listen for messages in real-time
   useEffect(() => {
     const messagesRef = ref(database, `chats/${chatId}/messages`);
     const unsubscribe = onValue(messagesRef, (snapshot) => {
       const data = snapshot.val();
-      const loadedMessages = data ? Object.values(data) : [];
+      const loadedMessages = data
+        ? Object.entries(data).map(([key, value]) => ({ id: key, ...value }))
+        : [];
       setMessages(loadedMessages);
+    }, (error) => {
+      console.error("Error fetching messages:", error);
     });
+
+    // Cleanup listener on unmount
     return () => unsubscribe();
   }, [chatId]);
 
+  // Send a new message
   const sendMessage = () => {
     if (newMessage.trim() === '') return;
     const messagesRef = ref(database, `chats/${chatId}/messages`);
@@ -28,23 +36,28 @@ function Chat({ chatId, userId, onEndChat }) {
   };
 
   return (
-    <div>
+    <div className="chat-container">
       <h2>Chat Room</h2>
-      <button onClick={onEndChat}>End Chat</button>
-      <div className="messages">
-        {messages.map((msg, index) => (
-          <div key={index} className={msg.sender === userId ? 'sent' : 'received'}>
+      <button className="end-chat-button" onClick={onEndChat}>End Chat</button>
+      <div className="message-list">
+        {messages.map((msg) => (
+          <div
+            key={msg.id}
+            className={`message ${msg.sender === userId ? 'sent' : 'received'}`}
+          >
             {msg.text}
           </div>
         ))}
       </div>
-      <input
-        type="text"
-        value={newMessage}
-        onChange={(e) => setNewMessage(e.target.value)}
-        placeholder="Type a message..."
-      />
-      <button onClick={sendMessage}>Send</button>
+      <div className="input-area">
+        <input
+          type="text"
+          value={newMessage}
+          onChange={(e) => setNewMessage(e.target.value)}
+          placeholder="Type a message..."
+        />
+        <button onClick={sendMessage}>Send</button>
+      </div>
     </div>
   );
 }
