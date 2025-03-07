@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { auth } from '../firebase/firebase';
-import { loginAnonymously, joinQueue } from '../auth';
+import { auth } from '../firebase/firebase'; // Fixed: Import auth from firebase.js
+import { loginAnonymously, joinQueue } from '../firebase/auth'; // Correct as is
 import Chat from './Chat';
 
 function Home() {
@@ -9,7 +9,6 @@ function Home() {
   const [isWaiting, setIsWaiting] = useState(false);
 
   useEffect(() => {
-    // Set the current user when auth state changes
     const unsubscribe = auth.onAuthStateChanged((currentUser) => {
       setUser(currentUser);
     });
@@ -30,7 +29,7 @@ function Home() {
   };
 
   const handleEndChat = () => {
-    setChatId(null); // Return to home screen
+    setChatId(null);
   };
 
   if (isWaiting) {

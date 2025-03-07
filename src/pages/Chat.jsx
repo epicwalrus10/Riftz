@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { database } from './firebase/firebase';
+import { database } from '../firebase/firebase';
 import { ref, onValue, push } from 'firebase/database';
 
 function Chat({ chatId, userId, onEndChat }) {
