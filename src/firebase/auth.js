@@ -51,17 +51,14 @@ export const joinQueue = (userId, onPaired) => {
     console.log("Current queue:", usersInQueue);
 
     if (usersInQueue.length >= 2) {
-      // Only the user with the lowest ID (first in queue) initiates pairing
-      const sortedUsers = usersInQueue.sort(); // Sort to ensure consistency
+      const sortedUsers = usersInQueue.sort(); // Sort for consistent leader
       if (userId === sortedUsers[0]) {
+        // Leader creates the chat
         const user1 = sortedUsers[0];
         const user2 = sortedUsers[1];
-
-        // Generate a single chatId for the pair
         const chatId = push(ref(database, "chats")).key;
         console.log(`Pairing ${user1} and ${user2} with chatId: ${chatId}`);
 
-        // Set up the chat room
         Promise.all([
           set(ref(database, `chats/${chatId}/users/${user1}`), true),
           set(ref(database, `chats/${chatId}/users/${user2}`), true),
@@ -70,30 +67,34 @@ export const joinQueue = (userId, onPaired) => {
         ])
           .then(() => {
             console.log(`Chat ${chatId} created, users removed from queue`);
-            // Notify this user (first in queue)
             if (user1 === userId || user2 === userId) {
               onPaired(chatId);
+              off(queueRef, "value", handleQueueChange); // Stop queue listener
             }
           })
           .catch((error) => {
             console.error("Failed to set up chat:", error);
           });
       } else {
-        // Other users wait for the chatId to be assigned
+        // Follower waits for chat assignment
         const chatCheckRef = ref(database, "chats");
+        console.log(`User ${userId} waiting for chat assignment`);
         const checkChat = onValue(chatCheckRef, (chatSnapshot) => {
           const chats = chatSnapshot.val();
           if (chats) {
-            Object.entries(chats).forEach(([id, chatData]) => {
+            for (const [id, chatData] of Object.entries(chats)) {
               const users = chatData.users || {};
               if (users[userId]) {
                 console.log(`User ${userId} found in chat ${id}`);
                 onPaired(id);
-                off(chatCheckRef, "value", checkChat); // Stop listening
+                off(chatCheckRef, "value", checkChat); // Stop chat listener
                 off(queueRef, "value", handleQueueChange); // Stop queue listener
+                break;
               }
-            });
+            }
           }
+        }, {
+          onlyOnce: true // Run once to avoid repeated checks
         });
       }
     }
