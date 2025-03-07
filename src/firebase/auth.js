@@ -1,7 +1,8 @@
 import { auth, database } from "./firebase";
 import { signInAnonymously, onAuthStateChanged } from "firebase/auth";
-import { ref, set, onValue, remove, push } from "firebase/database";
+import { ref, set, onValue, remove, push, off } from "firebase/database";
 
+// Anonymous login function
 export const loginAnonymously = async () => {
   try {
     const result = await signInAnonymously(auth);
@@ -13,6 +14,7 @@ export const loginAnonymously = async () => {
   }
 };
 
+// Monitor authentication state changes
 export const monitorAuthState = (callback) => {
   onAuthStateChanged(auth, (user) => {
     if (user) {
@@ -23,39 +25,46 @@ export const monitorAuthState = (callback) => {
   });
 };
 
+// Join the chat queue and handle pairing
 export const joinQueue = (userId, onPaired) => {
   const queueRef = ref(database, "queue");
   const userQueueRef = ref(database, `queue/${userId}`);
 
-  // Add user to queue
-  set(userQueueRef, true);
+  // Add user to queue with a timestamp for better tracking
+  set(userQueueRef, { joinedAt: Date.now() });
 
-  // Listen for queue changes
-  onValue(queueRef, (snapshot) => {
+  // Define the queue listener function
+  const handleQueueChange = (snapshot) => {
     const queue = snapshot.val();
     if (!queue) return;
 
     const usersInQueue = Object.keys(queue);
     if (usersInQueue.length >= 2 && usersInQueue.includes(userId)) {
-      // Pair the first two users (including this user if present)
+      // Pair the first two users
       const user1 = usersInQueue[0];
       const user2 = usersInQueue[1];
 
-      // Create a unique chat ID
+      // Generate a unique chat ID
       const chatId = push(ref(database, "chats")).key;
 
-      // Set up the chat room
+      // Set up the chat room for both users
       set(ref(database, `chats/${chatId}/users/${user1}`), true);
       set(ref(database, `chats/${chatId}/users/${user2}`), true);
 
-      // Remove paired users from queue
+      // Remove paired users from the queue
       remove(ref(database, `queue/${user1}`));
       remove(ref(database, `queue/${user2}`));
 
-      // Callback with chat ID if this user is paired
+      // Trigger callback if the current user is paired
       if (user1 === userId || user2 === userId) {
         onPaired(chatId);
+        // Stop listening to queue changes after pairing
+        off(queueRef, "value", handleQueueChange);
       }
     }
-  });
+  };
+
+  // Attach the listener to the queue
+  // NOTE: This listener is removed after pairing to prevent multiple active listeners
+  onValue(queueRef, handleQueueChange);
 };

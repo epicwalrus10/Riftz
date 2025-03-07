@@ -1,14 +1,19 @@
-import React, { useState, useEffect } from "react";
-import { loginAnonymously, monitorAuthState, joinQueue } from "../firebase/auth";
+import React, { useState, useEffect } from 'react';
+import { auth } from '../firebase/firebase';
+import { loginAnonymously, joinQueue } from '../auth';
+import Chat from './Chat';
 
 function Home() {
   const [user, setUser] = useState(null);
   const [chatId, setChatId] = useState(null);
+  const [isWaiting, setIsWaiting] = useState(false);
 
   useEffect(() => {
-    monitorAuthState((currentUser) => {
+    // Set the current user when auth state changes
+    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
       setUser(currentUser);
     });
+    return () => unsubscribe();
   }, []);
 
   const handleJoinChat = async () => {
@@ -17,21 +22,23 @@ function Home() {
       currentUser = await loginAnonymously();
       setUser(currentUser);
     }
+    setIsWaiting(true);
     joinQueue(currentUser.uid, (newChatId) => {
       setChatId(newChatId);
-      console.log("Paired! Chat ID:", newChatId);
+      setIsWaiting(false);
     });
-    console.log("Joining chat...");
   };
 
+  const handleEndChat = () => {
+    setChatId(null); // Return to home screen
+  };
+
+  if (isWaiting) {
+    return <p>Waiting for a match...</p>;
+  }
+
   if (chatId) {
-    return (
-      <div>
-        <h1>Paired!</h1>
-        <p>Chat ID: {chatId}</p>
-        {/* We'll replace this with Chat.jsx later */}
-      </div>
-    );
+    return <Chat chatId={chatId} userId={user.uid} onEndChat={handleEndChat} />;
   }
 
   return (

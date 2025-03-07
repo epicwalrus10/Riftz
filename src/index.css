@@ -1,20 +1,26 @@
+/* Base styles for the entire application */
 body {
   font-family: Arial, sans-serif;
   margin: 0;
-  padding: 20px;
+  padding: 0; /* Adjusted from 20px to 0 for full-screen compatibility */
   background-color: #f0f0f0;
 }
 
+/* Main application container */
 .App {
   max-width: 600px;
   margin: 0 auto;
   text-align: center;
+  padding: 20px; /* Added padding for better spacing */
 }
 
+/* Heading style */
 h1 {
   color: #333;
+  margin-bottom: 20px; /* Added margin for spacing below the title */
 }
 
+/* Default button styles */
 button {
   padding: 10px 20px;
   font-size: 16px;
@@ -26,5 +32,110 @@ button {
 }
 
 button:hover {
+  background-color: #0056b3; /* Darker shade on hover */
+}
+
+/* Chat container styling */
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 80vh; /* Takes up 80% of the viewport height */
+  max-width: 600px;
+  margin: 0 auto;
+  background-color: white;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+}
+
+/* Message list styling */
+.message-list {
+  flex: 1; /* Allows the message list to grow and fill available space */
+  overflow-y: auto; /* Enables vertical scrolling for long chats */
+  padding: 10px;
+}
+
+/* General message styling */
+.message {
+  max-width: 70%; /* Limits message width for readability */
+  margin-bottom: 10px;
+  padding: 10px;
+  border-radius: 10px;
+}
+
+/* Sent message styling */
+.sent {
+  align-self: flex-end; /* Aligns sent messages to the right */
+  background-color: #007bff;
+  color: white;
+}
+
+/* Received message styling */
+.received {
+  align-self: flex-start; /* Aligns received messages to the left */
+  background-color: #e0e0e0;
+}
+
+/* Input area styling */
+.input-area {
+  display: flex;
+  padding: 10px;
+  border-top: 1px solid #e0e0e0; /* Separator line above input */
+}
+
+.input-area input {
+  flex: 1; /* Input grows to fill available space */
+  padding: 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+  margin-right: 10px; /* Space between input and send button */
+}
+
+.input-area button {
+  padding: 10px 20px;
+  font-size: 16px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.input-area button:hover {
   background-color: #0056b3;
+}
+
+/* End chat button styling */
+.end-chat-button {
+  margin: 10px;
+  padding: 10px 20px;
+  font-size: 16px;
+  background-color: #ff4d4d; /* Red color for emphasis */
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.end-chat-button:hover {
+  background-color: #cc0000; /* Darker red on hover */
+}
+
+/* Responsive design for smaller screens */
+@media (max-width: 600px) {
+  .chat-container {
+    height: 100vh; /* Full height on mobile */
+    border-radius: 0; /* Removes rounded corners for edge-to-edge look */
+  }
+
+  .message-list {
+    padding: 5px; /* Reduced padding on smaller screens */
+  }
+
+  .input-area {
+    padding: 5px; /* Reduced padding for compact layout */
+  }
+
+  .input-area input {
+    margin-right: 5px; /* Reduced spacing for smaller screens */
+  }
 }
