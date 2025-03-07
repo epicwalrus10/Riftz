@@ -17,6 +17,7 @@ export const loginAnonymously = async () => {
 // Monitor authentication state changes
 export const monitorAuthState = (callback) => {
   onAuthStateChanged(auth, (user) => {
+    console.log("Auth state changed:", user ? user.uid : "No user");
     if (user) {
       callback(user);
     } else {
@@ -25,39 +26,43 @@ export const monitorAuthState = (callback) => {
   });
 };
 
-// Join the chat queue and handle pairing
+// Join the chat queue and handle pairing with detailed debugging
 export const joinQueue = (userId, onPaired) => {
   const queueRef = ref(database, "queue");
   const userQueueRef = ref(database, `queue/${userId}`);
 
+  console.log(`[DEBUG] ${userId}: Starting joinQueue`);
+
   // Add user to queue with a timestamp
   set(userQueueRef, { joinedAt: Date.now() })
     .then(() => {
-      console.log(`User ${userId} added to queue`);
+      console.log(`[DEBUG] ${userId}: Successfully added to queue at ${Date.now()}`);
     })
     .catch((error) => {
-      console.error(`Failed to add ${userId} to queue:`, error);
+      console.error(`[DEBUG] ${userId}: Failed to add to queue:`, error.message);
     });
 
   // Listen for queue changes
   const handleQueueChange = (snapshot) => {
     const queue = snapshot.val();
+    console.log(`[DEBUG] ${userId}: Queue snapshot at ${Date.now()}:`, queue ? Object.keys(queue) : "Empty");
+
     if (!queue) {
-      console.log("Queue is empty");
+      console.log(`[DEBUG] ${userId}: Queue is empty`);
       return;
     }
 
     const usersInQueue = Object.keys(queue);
-    console.log("Current queue:", usersInQueue);
-
     if (usersInQueue.length >= 2) {
       const sortedUsers = usersInQueue.sort(); // Sort for consistent leader
+      console.log(`[DEBUG] ${userId}: Queue has ${usersInQueue.length} users:`, sortedUsers);
+
       if (userId === sortedUsers[0]) {
         // Leader creates the chat
         const user1 = sortedUsers[0];
         const user2 = sortedUsers[1];
         const chatId = push(ref(database, "chats")).key;
-        console.log(`Pairing ${user1} and ${user2} with chatId: ${chatId}`);
+        console.log(`[DEBUG] ${userId}: Leader initiating pairing for ${user1} and ${user2} with chatId: ${chatId}`);
 
         Promise.all([
           set(ref(database, `chats/${chatId}/users/${user1}`), true),
@@ -66,29 +71,36 @@ export const joinQueue = (userId, onPaired) => {
           remove(ref(database, `queue/${user2}`)),
         ])
           .then(() => {
-            console.log(`Chat ${chatId} created, users removed from queue`);
+            console.log(`[DEBUG] ${userId}: Chat ${chatId} created and users removed from queue`);
             if (user1 === userId || user2 === userId) {
+              console.log(`[DEBUG] ${userId}: Leader calling onPaired with chatId: ${chatId}`);
               onPaired(chatId);
-              off(queueRef, "value", handleQueueChange); // Stop queue listener
+              off(queueRef, "value", handleQueueChange);
+              console.log(`[DEBUG] ${userId}: Stopped queue listener after pairing`);
             }
           })
           .catch((error) => {
-            console.error("Failed to set up chat:", error);
+            console.error(`[DEBUG] ${userId}: Failed to set up chat:`, error.message);
           });
       } else {
         // Follower waits for chat assignment
         const chatCheckRef = ref(database, "chats");
-        console.log(`User ${userId} waiting for chat assignment`);
+        console.log(`[DEBUG] ${userId}: Follower starting chat listener`);
+
         const checkChat = onValue(chatCheckRef, (chatSnapshot) => {
           const chats = chatSnapshot.val();
+          console.log(`[DEBUG] ${userId}: Chats snapshot at ${Date.now()}:`, chats ? Object.keys(chats) : "No chats");
+
           if (chats) {
             for (const [id, chatData] of Object.entries(chats)) {
               const users = chatData.users || {};
+              console.log(`[DEBUG] ${userId}: Checking chat ${id} users:`, Object.keys(users));
               if (users[userId]) {
-                console.log(`User ${userId} found in chat ${id}`);
+                console.log(`[DEBUG] ${userId}: Found in chat ${id}, calling onPaired`);
                 onPaired(id);
-                off(chatCheckRef, "value", checkChat); // Stop chat listener
-                off(queueRef, "value", handleQueueChange); // Stop queue listener
+                off(chatCheckRef, "value", checkChat);
+                off(queueRef, "value", handleQueueChange);
+                console.log(`[DEBUG] ${userId}: Stopped chat and queue listeners after pairing`);
                 break;
               }
             }
@@ -98,14 +110,16 @@ export const joinQueue = (userId, onPaired) => {
         // Fallback timeout if chat isn’t detected within 10 seconds
         setTimeout(() => {
           if (!off(chatCheckRef, "value", checkChat)) {
-            console.log(`Timeout: No chat found for ${userId}`);
+            console.log(`[DEBUG] ${userId}: Timeout - No chat found after 10s`);
             off(chatCheckRef, "value", checkChat);
             off(queueRef, "value", handleQueueChange);
+            console.log(`[DEBUG] ${userId}: All listeners stopped due to timeout`);
           }
         }, 10000);
       }
     }
   };
 
+  console.log(`[DEBUG] ${userId}: Starting queue listener`);
   onValue(queueRef, handleQueueChange);
 };
