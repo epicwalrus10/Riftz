@@ -1,6 +1,6 @@
 import { auth, database } from "./firebase";
 import { signInAnonymously, onAuthStateChanged } from "firebase/auth";
-import { ref, set, onValue, remove, push, off } from "firebase/database";
+import { ref, set, onValue, remove, push, off, get } from "firebase/database";
 
 // Anonymous login function
 export const loginAnonymously = async () => {
@@ -42,7 +42,7 @@ export const joinQueue = (userId, onPaired) => {
       console.error(`[DEBUG] ${userId}: Failed to add to queue:`, error.message);
     });
 
-  // Listen for queue changes
+  // Listen for-queue changes
   const handleQueueChange = (snapshot) => {
     const queue = snapshot.val();
     console.log(`[DEBUG] ${userId}: Queue snapshot at ${Date.now()}:`, queue ? Object.keys(queue) : "Empty");
@@ -84,13 +84,34 @@ export const joinQueue = (userId, onPaired) => {
           });
       } else {
         // Follower waits for chat assignment
+        off(queueRef, "value", handleQueueChange); // Stop queue listener immediately
+        console.log(`[DEBUG] ${userId}: Stopped queue listener for follower`);
         const chatCheckRef = ref(database, "chats");
         console.log(`[DEBUG] ${userId}: Follower starting chat listener`);
 
+        // Immediate check for existing chat
+        get(chatCheckRef).then((snapshot) => {
+          const chats = snapshot.val();
+          console.log(`[DEBUG] ${userId}: Initial chats snapshot at ${Date.now()}:`, chats ? Object.keys(chats) : "No chats");
+          if (chats) {
+            for (const [id, chatData] of Object.entries(chats)) {
+              const users = chatData.users || {};
+              console.log(`[DEBUG] ${userId}: Checking chat ${id} users:`, Object.keys(users));
+              if (users[userId]) {
+                console.log(`[DEBUG] ${userId}: Found in chat ${id} (initial check), calling onPaired`);
+                onPaired(id);
+                return; // Exit early if found
+              }
+            }
+          }
+        }).catch((error) => {
+          console.error(`[DEBUG] ${userId}: Initial chat check failed:`, error.message);
+        });
+
+        // Continuous listener for new chats
         const checkChat = onValue(chatCheckRef, (chatSnapshot) => {
           const chats = chatSnapshot.val();
           console.log(`[DEBUG] ${userId}: Chats snapshot at ${Date.now()}:`, chats ? Object.keys(chats) : "No chats");
-
           if (chats) {
             for (const [id, chatData] of Object.entries(chats)) {
               const users = chatData.users || {};
@@ -99,8 +120,7 @@ export const joinQueue = (userId, onPaired) => {
                 console.log(`[DEBUG] ${userId}: Found in chat ${id}, calling onPaired`);
                 onPaired(id);
                 off(chatCheckRef, "value", checkChat);
-                off(queueRef, "value", handleQueueChange);
-                console.log(`[DEBUG] ${userId}: Stopped chat and queue listeners after pairing`);
+                console.log(`[DEBUG] ${userId}: Stopped chat listener after pairing`);
                 break;
               }
             }
@@ -109,12 +129,8 @@ export const joinQueue = (userId, onPaired) => {
 
         // Fallback timeout if chat isn’t detected within 10 seconds
         setTimeout(() => {
-          if (!off(chatCheckRef, "value", checkChat)) {
-            console.log(`[DEBUG] ${userId}: Timeout - No chat found after 10s`);
-            off(chatCheckRef, "value", checkChat);
-            off(queueRef, "value", handleQueueChange);
-            console.log(`[DEBUG] ${userId}: All listeners stopped due to timeout`);
-          }
+          off(chatCheckRef, "value", checkChat);
+          console.log(`[DEBUG] ${userId}: Timeout - No chat found after 10s`);
         }, 10000);
       }
     }
